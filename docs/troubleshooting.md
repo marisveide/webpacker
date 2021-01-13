@@ -1,16 +1,41 @@
 # Troubleshooting
 
+## Debugging your webpack config
+
+1. Read the error message carefully. The error message will tell you the precise key value
+   that is not matching what Webpack expects.
+2. Put a `debugger` statement in your Webpack configuration and run `bin/webpack --debug-webpacker`.
+   If you have a node debugger installed, you'll see the Chrome debugger for your webpack
+   config. For example, install the Chrome extension [NiM](https://chrome.google.com/webstore/detail/nodejs-v8-inspector-manag/gnhhdgbaldcilmgcpfddgdbkhjohddkj) and
+   set the option for the dev tools to open automatically. For more details on debugging,
+   see the official [Webpack docs on debugging](https://webpack.js.org/contribute/debugging/#devtools)
+3. Any arguments that you add to bin/webpack get sent to webpack. For example, you can pass `--debug` to switch loaders to debug mode. See [webpack CLI debug options](https://webpack.js.org/api/cli/#debug-options) for more information on the available options.
+4. You can also pass additional options to the command to run the webpack-dev-server and start the webpack-dev-server with the option `--debug-webpacker`
 
 ## ENOENT: no such file or directory - node-sass
 
-*  If you get this error `ENOENT: no such file or directory - node-sass` on Heroku
-or elsewhere during `assets:precompile` or `bundle exec rails webpacker:compile`
-then you would need to rebuild node-sass. It's a bit of a weird error;
-basically, it can't find the `node-sass` binary.
-An easy solution is to create a postinstall hook - `npm rebuild node-sass` in
-`package.json` and that will ensure `node-sass` is rebuilt whenever
-you install any new modules.
+If you get the error `ENOENT: no such file or directory - node-sass` on deploy with
+`assets:precompile` or `bundle exec rails webpacker:compile` you may need to
+move Sass to production `dependencies`.
 
+Move any packages that related to Sass (e.g. `node-sass` or `sass-loader`) from
+`devDependencies` to `dependencies` in `package.json`. This is because
+webpacker is running on a production system with the Rails workflow to build
+the assets. Particularly on hosting providers that try to detect and do the right
+thing, like Heroku.
+
+However, if you get this on local development, or not during a deploy then you
+may need to rebuild `node-sass`. It's a bit of a weird error; basically, it
+can't find the `node-sass` binary.  An easy solution is to create a postinstall
+hook to ensure `node-sass` is rebuilt whenever new modules are installed.
+
+In `package.json`:
+
+```json
+"scripts": {
+  "postinstall": "npm rebuild node-sass"
+}
+```
 
 ## Can't find hello_react.js in manifest.json
 
@@ -116,4 +141,18 @@ environment.plugins.append('ContextReplacement',
     resolve(config.source_path)
   )
 )
+```
+
+### Compilation Fails Silently
+
+If compiling is not producing output files and there are no error messages to help troubleshoot. Setting the webpack_compile_output configuration variable to 'true' in webpacker.yml may add some helpful error information to your log file (Rails log/development.log or log/production.log)
+
+```yml
+# webpacker.yml
+default: &default
+  source_path: app/javascript
+  source_entry_path: packs
+  public_root_path: public
+  public_output_path: complaints_packs
+  webpack_compile_output: true
 ```

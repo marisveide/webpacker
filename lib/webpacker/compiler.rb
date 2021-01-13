@@ -4,6 +4,8 @@ require "digest/sha1"
 class Webpacker::Compiler
   # Additional paths that test compiler needs to watch
   # Webpacker::Compiler.watched_paths << 'bower_components'
+  #
+  # Deprecated. Use additional_paths in the YAML configuration instead.
   cattr_accessor(:watched_paths) { [] }
 
   # Additional environment variables that the compiler is being run with
@@ -19,9 +21,14 @@ class Webpacker::Compiler
   def compile
     if stale?
       run_webpack.tap do |success|
-        record_compilation_digest if success
+        # We used to only record the digest on success
+        # However, the output file is still written on error, meaning that the digest should still be updated.
+        # If it's not, you can end up in a situation where a recompile doesn't take place when it should.
+        # See https://github.com/rails/webpacker/issues/2113
+        record_compilation_digest
       end
     else
+      logger.info "Everything's up-to-date. Nothing to do"
       true
     end
   end
@@ -45,6 +52,8 @@ class Webpacker::Compiler
     end
 
     def watched_files_digest
+      warn "Webpacker::Compiler.watched_paths has been deprecated. Set additional_paths in webpacker.yml instead." unless watched_paths.empty?
+
       files = Dir[*default_watched_paths, *watched_paths].reject { |f| File.directory?(f) }
       file_ids = files.sort.map { |f| "#{File.basename(f)}/#{Digest::SHA1.file(f).hexdigest}" }
       Digest::SHA1.hexdigest(file_ids.join("/"))
@@ -56,7 +65,7 @@ class Webpacker::Compiler
     end
 
     def run_webpack
-      logger.info "Compiling…"
+      logger.info "Compiling..."
 
       stdout, stderr, status = Open3.capture3(
         webpack_env,
@@ -66,13 +75,14 @@ class Webpacker::Compiler
 
       if status.success?
         logger.info "Compiled all packs in #{config.public_output_path}"
-        logger.error "#{stderr}\n" unless stderr.empty?
-      else
-        logger.error "Compilation failed:\n#{stderr}"
-      end
+        logger.error "#{stderr}" unless stderr.empty?
 
-      if config.webpack_compile_output?
-        logger.info stdout
+        if config.webpack_compile_output?
+          logger.info stdout
+        end
+      else
+        non_empty_streams = [stdout, stderr].delete_if(&:empty?)
+        logger.error "Compilation failed:\n#{non_empty_streams.join("\n\n")}"
       end
 
       status.success?
@@ -80,8 +90,8 @@ class Webpacker::Compiler
 
     def default_watched_paths
       [
-        *config.resolved_paths_globbed,
-        "#{config.source_path.relative_path_from(config.root_path)}/**/*",
+        *config.additional_paths_globbed,
+        config.source_path_globbed,
         "yarn.lock", "package.json",
         "config/webpack/**/*"
       ].freeze
@@ -95,6 +105,7 @@ class Webpacker::Compiler
       return env unless defined?(ActionController::Base)
 
       env.merge("WEBPACKER_ASSET_HOST"        => ENV.fetch("WEBPACKER_ASSET_HOST", ActionController::Base.helpers.compute_asset_host),
-                "WEBPACKER_RELATIVE_URL_ROOT" => ENV.fetch("WEBPACKER_RELATIVE_URL_ROOT", ActionController::Base.relative_url_root))
+                "WEBPACKER_RELATIVE_URL_ROOT" => ENV.fetch("WEBPACKER_RELATIVE_URL_ROOT", ActionController::Base.relative_url_root),
+                "WEBPACKER_CONFIG" => webpacker.config_path.to_s)
     end
 end

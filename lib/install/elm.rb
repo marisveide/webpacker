@@ -6,7 +6,7 @@ copy_file "#{__dir__}/loaders/elm.js", Rails.root.join("config/webpack/loaders/e
 say "Adding elm loader to config/webpack/environment.js"
 insert_into_file Rails.root.join("config/webpack/environment.js").to_s,
   "const elm =  require('./loaders/elm')\n",
-  after: "require('@rails/webpacker')\n"
+  after: /require\(('|")@rails\/webpacker\1\);?\n/
 
 insert_into_file Rails.root.join("config/webpack/environment.js").to_s,
   "environment.loaders.prepend('elm', elm)\n",
@@ -24,13 +24,13 @@ say "Installing all Elm dependencies"
 run "yarn add elm elm-webpack-loader"
 run "yarn add --dev elm-hot-webpack-loader"
 run "yarn run elm init"
-run "yarn run elm make"
+run "yarn run elm make #{Webpacker.config.source_path}/Main.elm"
 
 say "Updating webpack paths to include .elm file extension"
 insert_into_file Webpacker.config.config_path, "- .elm\n".indent(4), after: /\s+extensions:\n/
 
 say "Updating Elm source location"
-gsub_file "elm.json", /\"\src\"\n/,
+gsub_file "elm.json", /\"src\"\n/,
   %("#{Webpacker.config.source_path.relative_path_from(Rails.root)}"\n)
 
 say "Updating .gitignore to include elm-stuff folder"

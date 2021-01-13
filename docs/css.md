@@ -3,8 +3,65 @@
 
 Webpacker supports importing CSS, Sass and SCSS files directly into your JavaScript files.
 
+Importing and loading styles is a two step process:
+
+1. You need to tell webpack which file(s) it has to compile and know how to load
+
+   When you do `import '../scss/application.scss'`, you're telling webpack to include `application.scss` in the build. This does not mean it's going to be compiled into your javascript, only that webpack now compiles and knows how to load this file. (How that file compilation is handled is depending on how your loaders (`css-loader`, `sass-loader`, `file-loader`, etc.) are configured.)
+
+2. You need to load those files in your views
+
+   In order to have styles load in production, you need to include `stylesheet_pack_tag` with the same name as the javascript file that imports the styles.
+
+   When you do `<%= stylesheet_pack_tag 'application' %>`, that's a run-time inclusion from Rails, where Rails gets the correct "asset path" to that file from webpack.
+
 
 ## Import global styles into your JS app
+
+### Importing CSS as a multi-file pack (Webpacker v5)
+
+When you add a CSS/SCSS/SASS file to `app/javascript/packs/` directory, make sure to use the same pack name as its complementary JavaScript pack, e.g. `application.js` and `application.css`. By Webpacker convention (as of Webpacker v5), this will bundle `application.js` and `application.scss` as part of the same entry point (also described as [a multi-file entry point in the webpack docs](https://webpack.js.org/concepts/entry-points/#single-entry-shorthand-syntax)). With this approach, you can avoid importing CSS from JS, if desired.
+
+```
+app/
+  javascript/
+    packs/
+      application.js
+      application.scss
+```
+
+### Importing CSS from CSS
+
+You can import additional CSS/SCSS/SASS files from within a CSS file:
+
+```
+app/
+  javascript/
+    stylesheets/
+      application.scss
+      posts.scss
+      comments.scss
+```
+
+```css
+/* app/javascript/stylesheets/application.scss */
+
+@import './posts';
+@import './comments';
+```
+
+### Importing CSS provided by an NPM package from SCSS/CSS
+
+Given your application installs an NPM package that provides CSS, such as `flatpickr`, you can import the CSS file(s) by path from the package directory within `node_modules/`:
+
+```js
+/* app/javascript/stylesheets/application.scss */
+
+@import "flatpickr/dist/flatpickr.css"
+```
+
+
+### Importing CSS from JS
 
 ```sass
 // app/javascript/hello_react/styles/hello-react.sass
@@ -30,9 +87,19 @@ const Hello = props => (
 )
 ```
 
+### Importing CSS provided by an NPM package from JS
+
+Given your application installs an NPM package that provides CSS, such as `flatpickr`, you can import the CSS file(s) by path from the package directory within `node_modules/`. This is an alternative to importing from within a CSS file, as above:
+
+```js
+// app/javascript/packs/application.js
+
+import "flatpickr/dist/flatpickr.css"
+```
+
 ## Import scoped styles into your JS app
 
-Stylesheets end with `.module.*` is treated as [CSS Modules](https://github.com/css-modules/css-modules).
+Stylesheets that end with `.module.*` are treated as [CSS Modules](https://github.com/css-modules/css-modules).
 
 ```sass
 // app/javascript/hello_react/styles/hello-react.module.sass
@@ -60,6 +127,59 @@ const Hello = props => (
 
 **Note:** Declared class is referenced as object property in JavaScript.
 
+## Import scoped styles into your TypeScript app
+
+Using CSS modules with a TypeScript application requires a few differences from a JavaScript app. The CSS / Sass files are the same:
+
+```sass
+// app/javascript/hello_react/styles/hello-react.module.sass
+
+.helloReact
+  padding: 20px
+  font-size: 12px
+```
+
+There must also be a type definition file for these styles:
+
+```typescript
+export const helloReact: string;
+```
+
+You can then import the styles like this:
+
+```typescript
+// React component example
+// app/javascripts/packs/hello_react.tsx
+
+import React from 'react'
+import helloIcon from '../hello_react/images/icon.png'
+import * as styles from '../hello_react/styles/hello-react.module.sass'
+
+const Hello = props => (
+  <div className={styles.helloReact}>
+    <img src={helloIcon} alt="hello-icon" />
+    <p>Hello {props.name}!</p>
+  </div>
+)
+```
+
+You can automatically generate type definitions for the styles by installing the `typed-scss-modules` as a development dependency:
+
+```
+yarn add typed-scss-modules --dev
+```
+
+Then by adding these lines to your `package.json`:
+
+```
+"scripts": {
+  "gen-typings": "yarn run tsm app/javascript/**/*.sass",
+  "watch-typings": "yarn run tsm app/javascript/**/*.sass -w"
+},
+```
+
+You can generate the typings for the stylesheet by running the command `yarn gen-typings` when you've finished writing CSS, or run `yarn watch-typings` to have it automatically generate them as you go.
+
 
 ## Link styles from your Rails views
 
@@ -82,14 +202,14 @@ You can use Yarn to add bootstrap or any other modules available on npm:
 yarn add bootstrap
 ```
 
-Import Bootstrap and theme (optional) CSS in your app/javascript/packs/app.js file:
+Import Bootstrap and theme (optional) CSS in your app/javascript/packs/application.js file:
 
 ```js
 import 'bootstrap/dist/css/bootstrap'
 import 'bootstrap/dist/css/bootstrap-theme'
 ```
 
-Or in your app/javascript/app.sass file:
+Or in your app/javascript/packs/application.sass file:
 
 ```sass
 // ~ to tell that this is not a relative import
@@ -148,11 +268,10 @@ const { environment } = require('@rails/webpacker')
 
 // resolve-url-loader must be used before sass-loader
 environment.loaders.get('sass').use.splice(-1, 0, {
-  loader: 'resolve-url-loader',
-  options: {
-    attempts: 1
-  }
+  loader: 'resolve-url-loader'
 });
+
+module.exports = environment
 ```
 
 ## Working with TypeScript

@@ -1,18 +1,17 @@
-sudo: false
 language: ruby
+dist: xenial
 before_install:
-  - gem update --system
+  - gem install rubygems-update && update_rubygems
+  - yes | rvm @global do gem install bundler -v 2.1.4 || true
 rvm:
-  - 2.3.8
-  - 2.4.5
-  - 2.5.3
-  - 2.6.0
+  - 2.4.9
+  - 2.5.5
+  - 2.6.5
+  - 2.7.0
   - ruby-head
 gemfile:
-  - gemfiles/Gemfile-rails.4.2.x
-  - gemfiles/Gemfile-rails.5.0.x
-  - gemfiles/Gemfile-rails.5.1.x
   - gemfiles/Gemfile-rails.5.2.x
+  - gemfiles/Gemfile-rails.6.0.x
   - gemfiles/Gemfile-rails-edge
 cache:
   bundler: true
@@ -21,8 +20,8 @@ cache:
   yarn: true
 
 install:
-  - bundle install
-  - nvm install node
+  - bundle install --jobs 3 --retry 3
+  - nvm install 12
   - node -v
   - npm i -g yarn
   - yarn
@@ -33,13 +32,12 @@ script:
   - bundle exec rake test
 matrix:
   allow_failures:
-  - gemfile: gemfiles/Gemfile-rails-edge
-  exclude:
-    - rvm: 2.3.8
-      gemfile: gemfiles/Gemfile-rails-edge
-    - rvm: 2.4.5
-      gemfile: gemfiles/Gemfile-rails-edge
-    - rvm: 2.5.3
-      gemfile: gemfiles/Gemfile-rails-edge
+    - gemfile: gemfiles/Gemfile-rails-edge
     - rvm: ruby-head
-      gemfile: gemfiles/Gemfile-rails.4.2.x
+  exclude:
+    - rvm: 2.4.9
+      gemfile: gemfiles/Gemfile-rails-edge
+    - rvm: 2.5.5
+      gemfile: gemfiles/Gemfile-rails-edge
+    - rvm: 2.4.9
+      gemfile: gemfiles/Gemfile-rails.6.0.x

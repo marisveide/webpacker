@@ -146,7 +146,7 @@ environment.loaders.insert('svg', {
       }
     }
   ])
-}, { after: 'file' })
+}, { before: 'file' })
 
 const fileLoader = environment.loaders.get('file')
 fileLoader.exclude = /\.(svg)$/i
@@ -189,9 +189,10 @@ const { environment } = require('@rails/webpacker')
 const merge = require('webpack-merge')
 
 const myCssLoaderOptions = {
-  modules: true,
+  modules: {
+    localIdentName: '[name]__[local]___[hash:base64:5]'
+  },
   sourceMap: true,
-  localIdentName: '[name]__[local]___[hash:base64:5]'
 }
 
 const CSSLoader = environment.loaders.get('sass').use.find(el => el.loader === 'css-loader')
@@ -221,7 +222,7 @@ const webpack = require('webpack')
 
 // Get a pre-configured plugin
 const manifestPlugin = environment.plugins.get('Manifest')
-manifestPlugin.opts.writeToFileEmit = false
+manifestPlugin.options.writeToFileEmit = false
 
 // Add an additional plugin of your choosing : ProvidePlugin
 environment.plugins.prepend(
@@ -261,7 +262,7 @@ environment.resolvedModules.append('vendor', 'vendor')
 ```
 
 ### Add SplitChunks (Webpack V4)
-Originally, chunks (and modules imported inside them) were connected by a parent-child relationship in the internal webpack graph. The CommonsChunkPlugin was used to avoid duplicated dependencies across them, but further optimizations were not possible
+Originally, chunks (and modules imported inside them) were connected by a parent-child relationship in the internal webpack graph. The CommonsChunkPlugin was used to avoid duplicated dependencies across them, but further optimizations were not possible.
 
 Since webpack v4, the CommonsChunkPlugin was removed in favor of optimization.splitChunks.
 
@@ -277,7 +278,7 @@ environment.splitChunks()
 environment.splitChunks((config) => Object.assign({}, config, { optimization: { splitChunks: false }}))
 ```
 
-Then use, `javascript_packs_with_chunks_tag` helper to include all the transpiled
+Then use the `javascript_packs_with_chunks_tag` and `stylesheet_packs_with_chunks_tag` helpers to include all the transpiled
 packs with the chunks in your view, which creates html tags for all the chunks.
 
 ```erb
@@ -303,6 +304,20 @@ get duplicated chunks on the page.
 ```
 
 For the old configuration with the CommonsChunkPlugin see below. **Note** that this functionality is deprecated in Webpack V4.
+
+#### Preloading
+
+Before preload or prefetch your assets, please read [https://developer.mozilla.org/en-US/docs/Web/HTML/Preloading_content](https://developer.mozilla.org/en-US/docs/Web/HTML/Preloading_content).
+
+Webpack also provide it's own methods for preload or prefetch [https://medium.com/webpack/link-rel-prefetch-preload-in-webpack-51a52358f84c](https://medium.com/webpack/link-rel-prefetch-preload-in-webpack-51a52358f84c).
+
+You can preload your assets with the `preload_pack_asset` helper if you have Rails >= 5.2.x.
+
+```erb
+<%= preload_pack_asset 'fonts/fa-regular-400.woff2' %>
+```
+
+**Warning:** You don't want to preload the css, you want to preload the fonts and images inside the css so that fonts, css, and images can all be downloaded in parallel instead of waiting for the browser to parse the css.
 
 ### Add common chunks (deprecated in Webpack V4)
 

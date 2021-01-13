@@ -23,12 +23,16 @@ class Webpacker::Configuration
     root_path.join(fetch(:source_path))
   end
 
-  def resolved_paths
-    fetch(:resolved_paths)
+  def source_path_globbed
+    globbed_path_with_extensions(source_path.relative_path_from(root_path))
   end
 
-  def resolved_paths_globbed
-    resolved_paths.map { |p| "#{p}/**/*" }
+  def additional_paths
+    fetch(:additional_paths) + resolved_paths
+  end
+
+  def additional_paths_globbed
+    additional_paths.map { |p| globbed_path_with_extensions(p) }
   end
 
   def source_entry_path
@@ -60,11 +64,7 @@ class Webpacker::Configuration
   end
 
   def check_yarn_integrity=(value)
-    data[:check_yarn_integrity] = value
-  end
-
-  def check_yarn_integrity?
-    fetch(:check_yarn_integrity)
+    warn "Webpacker::Configuration#check_yarn_integrity=(value) has been deprecated. The integrity check has been removed from Webpacker so changing this setting will have no effect."
   end
 
   def webpack_compile_output?
@@ -76,6 +76,14 @@ class Webpacker::Configuration
   end
 
   private
+    def resolved_paths
+      paths = data.fetch(:resolved_paths, [])
+
+      warn "The resolved_paths option has been deprecated. Use additional_paths instead." unless paths.empty?
+
+      paths
+    end
+
     def fetch(key)
       data.fetch(key, defaults[key])
     end
@@ -101,5 +109,9 @@ class Webpacker::Configuration
     def defaults
       @defaults ||= \
         HashWithIndifferentAccess.new(YAML.load_file(File.expand_path("../../install/config/webpacker.yml", __FILE__))[env])
+    end
+
+    def globbed_path_with_extensions(path)
+      "#{path}/**/*{#{extensions.join(',')}}"
     end
 end

@@ -5,7 +5,7 @@ To update a Webpacker v3.5 app to v4, follow these steps:
 
 1. Update the `webpacker` gem and the `@rails/webpacker` package to v4. This will upgrade Webpack itself from 3.x to 4.x, make sure you're aware of [any deprecations which might effect you](https://webpack.js.org/migrate/4/). Also make sure any other packages you depend on support Webpack 4 and don't require any changes, e.g. if you explicitly include `webpack` you need to upgrade it to 4.x, and if you use `webpack-dev-server` you need to upgrade it to 3.x.
 
-2. Browser support definitions have been moved to [`.browserslistrc`](../lib/install/config/.browserslistrc) to `/`.
+2. Browser support definitions have been moved from [`.browserslistrc`](../lib/install/config/.browserslistrc) to `/`.
 
 3. Merge any differences between [`config/webpacker.yml`](../lib/install/config/webpacker.yml) and your `config/webpacker.yml`.
 
@@ -104,7 +104,7 @@ If you want to keep the old behavior source maps can be disabled in any environm
 // config/webpack/production.js
 
 const environment = require('./environment')
-environment.config.merge({ devtool: 'none' })
+environment.config.merge({ devtool: false })
 
 module.exports = environment.toWebpackConfig()
 ```
@@ -124,6 +124,16 @@ The compiled packs in the public directory are now stored under namespaces:
 # After
 "runtime~hello_react" => "/packs/js/runtime~hello_react-da2baf7fd07b0e8b6d17.js"
 ```
+
+## Upgrading projects with custom Webpack setups that use only the view helpers
+The default value for `extract_css` is **false** in `config/webpack.yml`. Custom webpack builds that extract the CSS such as often used with [React on Rails](https://github.com/shakacode/react_on_rails) should set this value to true or else no CSS link tags are generated.
+
+  ```yml
+  default: &default
+     # other stuff
+     extract_css: true
+     # by default, extract and emit a css file. The default is false
+  ```
 
 ## Example Upgrades
 

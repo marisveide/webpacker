@@ -9,7 +9,7 @@ This guide describes how to do that using [Rails engines](https://guides.rubyonr
 
 ## Step 1: create Rails engine.
 
-First, you create a Rails engine (say, `MyEngine`). See the offical [Rails guide](https://guides.rubyonrails.org/engines.html).
+First, you create a Rails engine (say, `MyEngine`). See the official [Rails guide](https://guides.rubyonrails.org/engines.html).
 
 ## Step 2: install Webpacker within the engine.
 
@@ -20,6 +20,8 @@ There is no built-in tasks to install Webpacker within the engine, thus you have
 
 
 ## Step 3: configure Webpacker instance.
+
+- File `lib/my_engine.rb`
 
 ```ruby
 module MyEngine
@@ -37,6 +39,8 @@ end
 ```
 
 ## Step 4: Configure dev server proxy.
+
+- File `lib/my_engine/engine.rb`
 
 ```ruby
 module MyEngine
@@ -73,6 +77,8 @@ development:
 
 ## Step 5: configure helper.
 
+- File `app/helpers/my_engine/application_helper.rb`
+
 ```ruby
 require "webpacker/helper"
 
@@ -93,7 +99,18 @@ Now you can use `stylesheet_pack_tag` and `javascript_pack_tag` from within your
 
 Add Rake task to compile assets in production (`rake my_engine:webpacker:compile`)
 
+- File `my_engine_rootlib/tasks/my_engine_tasks.rake`
+
 ```ruby
+def ensure_log_goes_to_stdout
+  old_logger = Webpacker.logger
+  Webpacker.logger = ActiveSupport::Logger.new(STDOUT)
+  yield
+ensure
+  Webpacker.logger = old_logger
+end
+
+
 namespace :my_engine do
   namespace :webpacker do
     desc "Install deps with yarn"
@@ -106,14 +123,42 @@ namespace :my_engine do
     desc "Compile JavaScript packs using webpack for production with digests"
     task compile: [:yarn_install, :environment] do
       Webpacker.with_node_env("production") do
+        ensure_log_goes_to_stdout do
           if MyEngine.webpacker.commands.compile
             # Successful compilation!
           else
             # Failed compilation
             exit!
           end
+        end
       end
     end
+  end
+end
+
+def yarn_install_available?
+  rails_major = Rails::VERSION::MAJOR
+  rails_minor = Rails::VERSION::MINOR
+
+  rails_major > 5 || (rails_major == 5 && rails_minor >= 1)
+end
+
+def enhance_assets_precompile
+  # yarn:install was added in Rails 5.1
+  deps = yarn_install_available? ? [] : ["my_engine:webpacker:yarn_install"]
+  Rake::Task["assets:precompile"].enhance(deps) do
+    Rake::Task["my_engine:webpacker:compile"].invoke
+  end
+end
+
+# Compile packs after we've compiled all other assets during precompilation
+skip_webpacker_precompile = %w(no false n f).include?(ENV["WEBPACKER_PRECOMPILE"])
+
+unless skip_webpacker_precompile
+  if Rake::Task.task_defined?("assets:precompile")
+    enhance_assets_precompile
+  else
+    Rake::Task.define_task("assets:precompile" => "my_engine:webpacker:compile")
   end
 end
 ```
@@ -147,9 +192,22 @@ To serve static assets from the engine's `public/` folder you must add a middlew
 # application.rb
 
 config.middleware.use(
-  "Rack::Static",
+  Rack::Static,
   urls: ["/my-engine-packs"], root: "my_engine/public"
 )
+```
+or if you prefer to keep your engine-related configuration within the engine itself
+
+```ruby
+# my-engine-root/lib/my-engine/engine.rb
+module MyEngine
+  class Engine < ::Rails:Engine
+    config.app_middleware.use(
+      Rack::Static,
+      urls: ["/my-engine-packs"], root: "my_engine/public"
+    )
+  end
+end
 ```
 
 **NOTE:** in the example above we assume that your `public_output_path` is set to `my-engine-packs` in your engine's `webpacker.yml`.
